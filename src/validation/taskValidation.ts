@@ -1,26 +1,24 @@
-import Joi from 'joi';
+import Joi from "joi";
+import { TaskPriorityValues, TaskStatusValues } from "../types/task";
 
 /**
  * Task Validation Schemas
- * 
- * TODO: Implement Joi validation schemas for task operations
- * Reference the task requirements in README.md
  */
 
+export const PrioritySchema = Joi.string().valid(...TaskPriorityValues);
+
+export const StatusSchema = Joi.string().valid(...TaskStatusValues);
+
 export const createTaskSchema = Joi.object({
-  // TODO: Define validation schema for creating a task
-  // Remember the requirements:
-  // - title: required, string, max 100 characters
-  // - description: optional, string, max 500 characters  
-  // - priority: required, one of 'low', 'medium', 'high'
-  // - dueDate: optional, valid date
-  // Note: status, id, and timestamps are set automatically
+  title: Joi.string().max(100).required(),
+  description: Joi.string().max(500).optional(),
+  priority: PrioritySchema.required(),
+  dueDate: Joi.string().isoDate().optional(),
 }).unknown(false); // Reject unknown fields
 
 export const taskQuerySchema = Joi.object({
-  // TODO: Define validation schema for query parameters
-  // - status: optional, valid task status
-  // - priority: optional, valid task priority
+  status: StatusSchema.optional(),
+  priority: PrioritySchema.optional(),
 }).unknown(false); // Reject unknown query params
 
 // Validation helper functions
@@ -30,4 +28,4 @@ export const validateCreateTask = (data: unknown) => {
 
 export const validateTaskQuery = (data: unknown) => {
   return taskQuerySchema.validate(data);
-}; 
+};

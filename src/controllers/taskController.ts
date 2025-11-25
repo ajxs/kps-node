@@ -1,43 +1,90 @@
-import { Request, Response, NextFunction } from 'express';
-import { Task, CreateTaskRequest, TaskQueryParams } from '../types/task';
-// Import your validation schemas when ready
-// import { createTaskSchema } from '../validation/taskValidation';
+import Joi from "joi";
+import { Request, Response, NextFunction } from "express";
+import {
+  TaskStatus,
+  TaskPriority,
+  CreateTaskRequest,
+  GetTaskOptions,
+} from "../types/task";
+import { TaskService } from "../services/taskService";
+import {
+  createTaskSchema,
+  PrioritySchema,
+  StatusSchema,
+} from "../validation/taskValidation";
+import { createError } from "../middleware/errorHandler";
 
-/**
- * Task Controller
- * 
- * TODO: Implement the controller methods for basic task operations
- * Remember to:
- * - Use proper TypeScript types
- * - Validate input data  
- * - Handle errors appropriately
- * - Return proper HTTP status codes
- * - Use the task service for business logic
- */
+async function parseGetAllTasksQueryParameters(
+  req: Request
+): Promise<GetTaskOptions> {
+  // Validation errors raised by Joi will be caught by the calling controller.
+  // Using Async validation is slightly more efficient, as the runtime
+  // can serve another concurrent request while waiting for validation.
+  const statusQueryParameter = await StatusSchema.validateAsync(
+    Array.isArray(req.query.status) ? req.query.status[0] : req.query.status
+  );
 
-export const getAllTasks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const priorityQueryParameter = await PrioritySchema.validateAsync(
+    Array.isArray(req.query.priority)
+      ? req.query.priority[0]
+      : req.query.priority
+  );
+
+  return {
+    status: statusQueryParameter as TaskStatus | undefined,
+    priority: priorityQueryParameter as TaskPriority | undefined,
+  };
+}
+
+export const getAllTasks = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  // @Anthony: I really like that Express V5 automatically forwards async errors
+  // to the next error handler, and that we don't need top-level try/catch blocks
+  // anymore.
   try {
-    // TODO: Implement get all tasks
-    // - Extract query parameters for filtering (status, priority)
-    // - Call task service method
-    // - Sort by priority then by createdAt
-    // - Return filtered and sorted tasks
-    
-    res.status(501).json({ message: 'Not implemented yet' });
+    const getAllTasksOptions = await parseGetAllTasksQueryParameters(req);
+
+    const results = await TaskService.getAllTasks(getAllTasksOptions);
+
+    res.json(results);
   } catch (error) {
     next(error);
   }
 };
 
-export const createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createTask = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    // TODO: Implement create task
-    // - Validate request body using Joi schema
-    // - Call task service to create task
-    // - Return 201 with created task
-    
-    res.status(501).json({ message: 'Not implemented yet' });
+    const newTaskRequestData: CreateTaskRequest =
+      await createTaskSchema.validateAsync(req.body);
+
+    const newTask = await TaskService.createTask(newTaskRequestData);
+
+    res.status(201).json(newTask);
+  } catch (error) {
+    if (Joi.isError(error)) {
+      return next(createError(error.message, "RequestValidationError", 400));
+    }
+
+    next(error);
+  }
+};
+
+export async function deleteAllTasks(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await TaskService.clearAllTasks();
+    res.status(200).end();
   } catch (error) {
     next(error);
   }
-}; 
+}
